@@ -14,7 +14,7 @@ class MachineInterface(Thread, ABC):
         Parameters
         ----------
         publish_port : Optional[int]
-            port to publish data to 
+            port to publish data to
         machine_config : Dict
             machine hardware interface configuration dictionary
         """
@@ -76,7 +76,7 @@ class MachineInterface(Thread, ABC):
         Parameters
         ----------
         publish_socket : zmq.Socket
-            socket to publish 
+            socket to publish
         machine_name : str
             name of machine interface, used as topic for publishing
         machine_data : Dict[Any, str]
