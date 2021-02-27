@@ -5,9 +5,9 @@ name: Automated tests for learning-factory-server
 
 on:
   push:
-    branches: [ main develop ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main develop ]
+    branches: [ main, develop ]
 
 jobs:
   build:
