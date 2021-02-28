@@ -102,6 +102,10 @@ class LFServerTests(unittest.TestCase):
         self.server.machine_interfaces["machine_1"].send_data(None)
         self.server.stop()
 
+        # flush digital dash, virtual factory sockets
+        self._recv(self.digital_dash_socket)
+        self._recv(self.virtual_factory_socket)
+
         # destroy context
         self.context.destroy()
 
@@ -141,7 +145,7 @@ class LFServerTests(unittest.TestCase):
             self.assertDictEqual(truth_data_dict, self._recv(self.virtual_factory_socket))
 
 
-    def DONT_test_lf_server_run_multiple_machines(self):
+    def test_lf_server_run_multiple_machines(self):
         """Tests run method of LFServer with multiple machines producing data"""
         # create machine data dicts
         machine_data_dicts = [
@@ -158,9 +162,19 @@ class LFServerTests(unittest.TestCase):
             self.server.machine_interfaces["machine_1"].send_data(machine1_data_dict)
             self.server.machine_interfaces["machine_2"].send_data(machine2_data_dict)
 
-            # build truth data dict
-            truth_data_dict = {b"machine_1": machine1_data_dict, b"machine_2": machine2_data_dict}
+            # build truth data dicts
+            truth_data_dicts = [{b"machine_1": machine1_data_dict}, {b"machine_2": machine2_data_dict}]
 
-            # check that machine data dict is received by digital dash, virtual factory sockets
-            self.assertDictEqual(truth_data_dict, self._recv(self.digital_dash_socket))
-            self.assertDictEqual(truth_data_dict, self._recv(self.virtual_factory_socket))
+            # get dicts sent to digital dashboard socket
+            digital_dash_dicts = (
+                self._recv(self.digital_dash_socket), self._recv(self.digital_dash_socket)
+            )
+
+            # get dicts sent to virtual factorysocket
+            virtual_factory_dicts = (
+                self._recv(self.virtual_factory_socket), self._recv(self.virtual_factory_socket)
+            )
+
+            # check that correct dicts were received by each socket, order-irrespective
+            self.assertCountEqual(truth_data_dicts, digital_dash_dicts)
+            self.assertCountEqual(truth_data_dicts, virtual_factory_dicts)
