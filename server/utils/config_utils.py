@@ -30,7 +30,7 @@ def instantiate(obj_cfg: Dict, recursive: bool = True) -> Any:
     AttributeError
         If callable does not exist in module
     """
-    # deterime if object config 1is instantiable
+    # determine if object config is instantiable
     if not can_instantiate(obj_cfg):
         raise ValueError("No '_target_' directive in object config, cannot instantiate")
 
