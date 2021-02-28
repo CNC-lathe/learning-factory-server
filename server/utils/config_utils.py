@@ -42,6 +42,12 @@ def instantiate(obj_cfg: Dict, recursive: bool = True) -> Any:
     kwargs_dict = obj_cfg
     del kwargs_dict["_target_"]
 
+    # recursively instantiate configs
+    if recursive:
+        for kwarg_name, kwarg_val in kwargs_dict.items():
+            if isinstance(kwarg_val, dict) and can_instantiate(kwarg_val):
+                kwargs_dict[kwarg_name] = instantiate(kwarg_val, recursive=recursive)
+
     # return object
     return obj_callable(**kwargs_dict)
 
