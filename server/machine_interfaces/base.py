@@ -59,18 +59,18 @@ class MachineInterface(Thread, ABC):
 
     @abstractmethod
     @staticmethod
-    def _poll_machine() -> Dict[Any, str]:
+    def _poll_machine() -> Dict[str, Any]:
         """Polls machine hardware interface and returns machine data received
 
         Returns
         -------
-        Dict[Any, str]
+        Dict[str, Any]
             machine data recieved of machine hardware interface
         """
         ...
 
     @staticmethod
-    def _publish_data(publish_socket: zmq.Socket, machine_name: str, machine_data: Dict[Any, str]):
+    def _publish_data(publish_socket: zmq.Socket, machine_name: str, machine_data: Dict[str, Any]):
         """Publishes machine data over publish socket
 
         Parameters
@@ -79,7 +79,7 @@ class MachineInterface(Thread, ABC):
             socket to publish
         machine_name : str
             name of machine interface, used as topic for publishing
-        machine_data : Dict[Any, str]
+        machine_data : Dict[str, Any]
             machine data dictionary to publish
         """
         publish_socket.send_multipart([bytes(machine_name, "utf-8"), machine_data])
