@@ -23,10 +23,8 @@ def instantiate(obj_cfg: Dict, recursive: bool = True) -> Any:
     ------
     ValueError
         If no '_target_' directive in object config
-
     ModuleNotFoundError
         If module does not exist
-
     AttributeError
         If callable does not exist in module
     """
