@@ -7,7 +7,7 @@ import unittest
 import zmq
 
 from server import LFServer
-from server.utils import retry
+from lf_utils import retry
 
 
 class MockMachineInterface:

@@ -5,7 +5,7 @@ import pickle
 
 import zmq
 
-from ..utils import retry
+from lf_utils import retry
 
 
 class MachineInterface(Thread, ABC):

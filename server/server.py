@@ -5,7 +5,7 @@ import socket
 
 import zmq
 
-from .utils import instantiate, retry
+from lf_utils import instantiate, retry
 from .machine_interfaces import MachineInterface
 
 
