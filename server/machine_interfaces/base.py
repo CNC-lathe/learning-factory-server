@@ -10,12 +10,12 @@ from lf_utils import retry
 
 class MachineInterface(Thread, ABC):
     """Defines Machine Interface base class"""
-    def __init__(self, publish_port: Optional[int], machine_config: Dict):
+    def __init__(self, publish_port: int, machine_config: Dict):
         """Initializes machine hardware interface, thread, and publisher socket
 
         Parameters
         ----------
-        publish_port : Optional[int]
+        publish_port : int
             port to publish data to
         machine_config : Dict
             machine hardware interface configuration dictionary
@@ -27,7 +27,7 @@ class MachineInterface(Thread, ABC):
         self._machine_name = self._machine_config["name"]
 
         # set up publish address
-        self._publish_address = f"tcp://*:{publish_port}"
+        self._publish_address = f"tcp://127.0.0.1:{publish_port}"
 
         # set up publish socket
         self._context = zmq.Context()
@@ -60,9 +60,8 @@ class MachineInterface(Thread, ABC):
         """Stops thread asynchronously"""
         self._stopped = True
 
-    @staticmethod
     @abstractmethod
-    def _poll_machine() -> Dict[str, Any]:
+    def _poll_machine(self) -> Dict[str, Any]:
         """Polls machine hardware interface and returns machine data received
 
         Returns

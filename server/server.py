@@ -19,44 +19,27 @@ class LFServer(Thread):
 
     def __init__(
             self,
-            digital_dash_ip_addr: str,
-            digital_dash_port: int,
-            virtual_factory_ip_addr: str,
-            virtual_factory_port: int,
+            data_port: int,
             machine_configs: Dict[str, Dict]
     ):
         """Initializes server thread, instantiates and starts machine interfaces,
-        and sets up ZMQ sockets to machines and digital dashboard and virtual factory
+        and sets up ZMQ sockets to machines and data publishing
 
         Parameters
         ----------
-        digital_dash_ip_addr : str
-            IP address of digital dashboard
-        digital_dash_port : int
-            port of digital dashboard
-        virtual_factory_ip_addr : str
-            IP address of virtual factory
-        virtual_factory_port : int
-            port of virtual factory
+        data_port : int
+            port to publish data to
         machine_configs : Dict[str, Dict]
             machine interface configs, used to instantiate machine interfaces
         """
-        # create digital dashboard, virtual factory sockets
+        # create data socket
         self._context = zmq.Context()
 
-        digital_dash_address = f"tcp://{digital_dash_ip_addr}:{digital_dash_port}"
-        self._digital_dash_socket = self._context.socket(zmq.PUSH)
+        data_publish_address = f"tcp://*:{data_port}"
+        self._data_publish_socket = self._context.socket(zmq.PUB)
         retry(
-            self._digital_dash_socket.connect,
-            digital_dash_address,
-            handled_exceptions=zmq.error.ZMQError
-        )
-
-        virtual_factory_address = f"tcp://{virtual_factory_ip_addr}:{virtual_factory_port}"
-        self._virtual_factory_socket = self._context.socket(zmq.PUSH)
-        retry(
-            self._virtual_factory_socket.connect,
-            virtual_factory_address,
+            self._data_publish_socket.bind,
+            data_publish_address,
             handled_exceptions=zmq.error.ZMQError
         )
 
@@ -93,7 +76,7 @@ class LFServer(Thread):
 
     def run(self):
         """Runs main thread, receiving machine data from machine interfaces and
-        sending that data to digital dashboard, virtual factory
+        sending that data to machine data subscribers
         """
         try:
             # loop until thread is stopped
@@ -102,7 +85,7 @@ class LFServer(Thread):
                 machine_name, machine_data = self._recv_data()
 
                 # send data to digital dashboard, virtual factory
-                self._send_data({machine_name: machine_data})
+                self._send_data(machine_name, machine_data)
 
         # catch keyboard interrupts and gracefully exit thread
         except KeyboardInterrupt:
@@ -114,31 +97,33 @@ class LFServer(Thread):
         """Asynchronously stops server thread"""
         self.stopped = True
 
-    def _recv_data(self) -> Tuple[str, Dict[str, Dict[str, Any]]]:
+    def _recv_data(self) -> Tuple[bytes, Dict[str, Any]]:
         """Receives and returns data from receive socket
 
         Returns
         -------
-        Tuple[str, Dict[str, Dict[str, Any]]]
+        Tuple[bytes, Dict[str, Any]]
             tuple of machine name and machine data dictionary
         """
         machine_name, machine_data_encoded = self._receive_socket.recv_multipart()
 
         return machine_name, pickle.loads(machine_data_encoded)
 
-    def _send_data(self, machine_data: Dict[str, Dict[str, Any]]):
-        """Sends machine data to digital dashboard, virtual factory
+    def _send_data(self, machine_name: bytes, machine_data: Dict[str, Any]):
+        """Sends machine data to data publishing socket
 
         Parameters
         ----------
-        machine_data : Dict[str, Dict[str, Any]]
+        machine_name : bytes 
+            name of machine (topic to publish on)
+        machine_data : Dict[str, Any]
             machine data dictionary to send
         """
-        # send machine data to digital dashboard
-        self._digital_dash_socket.send_pyobj(machine_data)
-
-        # send machine data to virtual factory
-        self._virtual_factory_socket.send_pyobj(machine_data)
+        # publish machine data to data socket
+        self._data_publish_socket.send_multipart([
+            machine_name,
+            pickle.dumps(machine_data)
+        ])
 
     def _exit_thread(self):
         """Stops machine interfaces and closes zmq sockets"""
@@ -168,3 +153,4 @@ class LFServer(Thread):
 
         # return port number
         return receive_port
+

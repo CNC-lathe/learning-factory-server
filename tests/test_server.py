@@ -2,6 +2,7 @@ from typing import Any, Dict, Tuple
 import copy
 import random
 import pickle
+import time
 import unittest
 
 import zmq
@@ -50,9 +51,8 @@ class MockMachineInterface:
 
 class LFServerTests(unittest.TestCase):
     """Tests Learning Factory Server"""
-    # output IP addresses, ports
-    digital_dash_ip_port: Tuple[str, int] = ("127.0.0.1", 49152)
-    virtual_factory_ip_port: Tuple[str, int] = ("127.0.0.1", 49153)
+    # data output IP address, port
+    data_port = 49152
 
     # machine configs (for MockMachineInterface objects)
     machine_configs = {
@@ -71,8 +71,7 @@ class LFServerTests(unittest.TestCase):
         """
         # initialize LFServer
         self.server = LFServer(
-            *self.digital_dash_ip_port,
-            *self.virtual_factory_ip_port,
+            self.data_port,
             copy.deepcopy(self.machine_configs)
         )
 
@@ -82,17 +81,10 @@ class LFServerTests(unittest.TestCase):
         # create output ZMQ sockets
         self.context = zmq.Context()
 
-        self.digital_dash_socket = self.context.socket(zmq.PULL)
+        self.data_socket = self.context.socket(zmq.SUB)
         retry(
-            self.digital_dash_socket.bind,
-            f"tcp://*:{self.digital_dash_ip_port[-1]}",
-            handled_exceptions=zmq.error.ZMQError
-        )
-
-        self.virtual_factory_socket = self.context.socket(zmq.PULL)
-        retry(
-            self.virtual_factory_socket.bind,
-            f"tcp://*:{self.virtual_factory_ip_port[-1]}",
+            self.data_socket.connect,
+            f"tcp://127.0.0.1:{self.data_port}",
             handled_exceptions=zmq.error.ZMQError
         )
 
@@ -101,10 +93,6 @@ class LFServerTests(unittest.TestCase):
         # stop LFServer (first need to bypass blocking recv call)
         self.server.machine_interfaces["machine_1"].send_data(None)
         self.server.stop()
-
-        # flush digital dash, virtual factory sockets
-        self._recv(self.digital_dash_socket)
-        self._recv(self.virtual_factory_socket)
 
         # destroy context
         self.context.destroy()
@@ -122,7 +110,20 @@ class LFServerTests(unittest.TestCase):
         Dict[str, Dict[str, Any]]
             nested data dictionary received on socket
         """
-        return socket.recv_pyobj()
+        # poll for machine data on data socket
+        if socket.poll(timeout=3000) != 0:
+            machine_name, machine_data_encoded = socket.recv_multipart()
+            return {machine_name: pickle.loads(machine_data_encoded)}
+
+        else:
+            self.fail("Machine data not received in time (3 seconds)")
+
+    def _subscribe_to_topics(self, *topics: bytes):
+        """Subscribes to topics on the data socket and waits 1 second."""
+        for topic in topics:
+            self.data_socket.setsockopt(zmq.SUBSCRIBE, topic)
+
+        time.sleep(1)
 
     def test_lf_server_run_single_machine(self):
         """Tests run method of LFServer with a single machine producing data"""
@@ -132,6 +133,9 @@ class LFServerTests(unittest.TestCase):
             for _ in range(100)
         ]
 
+        # subscribe to machine 1 topic
+        self._subscribe_to_topics(b"machine_1")
+
         # iterate over machine data dicts
         for machine_data_dict in machine_data_dicts:
             # send machine data dict through mock machine interface
@@ -140,10 +144,8 @@ class LFServerTests(unittest.TestCase):
             # build truth data dict
             truth_data_dict = {b"machine_1": machine_data_dict}
 
-            # check that machine data dict is received by digital dash, virtual factory sockets
-            self.assertDictEqual(truth_data_dict, self._recv(self.digital_dash_socket))
-            self.assertDictEqual(truth_data_dict, self._recv(self.virtual_factory_socket))
-
+            # check that machine data dict is received by data socket
+            self.assertDictEqual(truth_data_dict, self._recv(self.data_socket))
 
     def test_lf_server_run_multiple_machines(self):
         """Tests run method of LFServer with multiple machines producing data"""
@@ -156,6 +158,9 @@ class LFServerTests(unittest.TestCase):
             for _ in range(100)
         ]
 
+        # subscribe to machine 1, 2 topics
+        self._subscribe_to_topics(b"machine_1", b"machine_2")
+
         # iterate over machine data dicts
         for machine1_data_dict, machine2_data_dict in machine_data_dicts:
             # send machine data dict through mock machine interface
@@ -166,15 +171,10 @@ class LFServerTests(unittest.TestCase):
             truth_data_dicts = [{b"machine_1": machine1_data_dict}, {b"machine_2": machine2_data_dict}]
 
             # get dicts sent to digital dashboard socket
-            digital_dash_dicts = (
-                self._recv(self.digital_dash_socket), self._recv(self.digital_dash_socket)
+            data_dicts = (
+                self._recv(self.data_socket), self._recv(self.data_socket)
             )
 
-            # get dicts sent to virtual factorysocket
-            virtual_factory_dicts = (
-                self._recv(self.virtual_factory_socket), self._recv(self.virtual_factory_socket)
-            )
+            # check that machine data dicts are received by data socket
+            self.assertCountEqual(truth_data_dicts, data_dicts)
 
-            # check that correct dicts were received by each socket, order-irrespective
-            self.assertCountEqual(truth_data_dicts, digital_dash_dicts)
-            self.assertCountEqual(truth_data_dicts, virtual_factory_dicts)
