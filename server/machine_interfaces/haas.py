@@ -147,6 +147,9 @@ class HaasInterface(MachineInterface):
     
         serial_port.close()
 
+        # Return the dictionary of data
+        return data_dict
+
 # Used to directly call the poll machine method for testing
 HaasInterface._poll_machine()
         
