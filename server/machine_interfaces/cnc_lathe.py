@@ -17,8 +17,11 @@ class CNCLatheInterface(MachineInterface):
         machine_config : Dict
             machine hardware interface configuration dictionary
         """
+        # init base class
+        super().__init__(publish_port, machine_config)
+
         # set up bluetooth port and bind to Ecoca interface
-        self._bt_port = BluetoothPort(**machine_config["bt_params"])
+        self._bt_port = BluetoothPort(**self.machine_config["bt_params"])
     
     def _poll_machine(self) -> Dict[Any, str]:
         """Polls CNC Lathe for data
