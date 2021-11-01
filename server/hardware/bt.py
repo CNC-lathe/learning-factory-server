@@ -5,15 +5,18 @@ import bluetooth
 
 
 class BluetoothPort:
-    def __init__(self, uuid: str):
-        """Initializes bluetooth port and binds to UUID.
+    def __init__(self, uuid: str, port: int):
+        """Initializes bluetooth port and connects to bluetooth service.
 
         Parameters
         ----------
         uuid : str
-            service UUID to bind to
+            service UUID to connect to
+        port : int
+            port to connect to
         """
-        raise NotImplementedError
+        self._port = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+        self._port.connect((uuid, port))
 
     def get_msg(self, msg_len: int) -> bytes:
         """Gets message from Bluetooth port of provided length.

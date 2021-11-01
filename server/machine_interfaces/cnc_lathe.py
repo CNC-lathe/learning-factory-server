@@ -2,7 +2,7 @@ from typing import Any, Dict, Tuple
 import struct
 
 from .base import MachineInterface
-from server.hardware.bt import BluetoothPort 
+from server import hardware
 
 
 class CNCLatheInterface(MachineInterface):
@@ -21,7 +21,7 @@ class CNCLatheInterface(MachineInterface):
         super().__init__(publish_port, machine_config)
 
         # set up bluetooth port and bind to Ecoca interface
-        self._bt_port = BluetoothPort(**self.machine_config["bt_params"])
+        self._bt_port = hardware.BluetoothPort(**machine_config["bt_params"])
     
     def _poll_machine(self) -> Dict[Any, str]:
         """Polls CNC Lathe for data
@@ -32,7 +32,7 @@ class CNCLatheInterface(MachineInterface):
             machine data gotten from CNC lathe hardware interface
         """
         # read message from bluetooth port
-        msg = BluetoothPort.get_msg(8)
+        msg = self._bt_port.get_msg(8)
 
         # parse message
         door_open, spindle_speed = self._parse_msg(msg)
@@ -56,15 +56,15 @@ class CNCLatheInterface(MachineInterface):
             fields parsed from message
         """
         # assert that delimiters are correct
-        if not msg[1] == b',' and msg[4] == b',' and msg[7] == b';':
+        if msg[1:2] != b',' or msg[4:5] != b',' or msg[8:9] != b';':
             raise RuntimeError("Message is malformed. Incorrect delimiters.")
 
         # get door open and spindle speed
-        door_open = struct.unpack('?', msg[0])
-        spindle_speed = struct.unpack('H', msg[2:4])
+        door_open, *_ = struct.unpack('?', msg[:1])
+        spindle_speed, *_ = struct.unpack('H', msg[2:4])
 
         # get and check checksum
-        checksum = struct.unpack('H', msg[5:7])
+        checksum, *_ = struct.unpack('H', msg[6:8])
         derived_checksum = int(door_open) + spindle_speed
         if checksum != derived_checksum:
             raise RuntimeError(
