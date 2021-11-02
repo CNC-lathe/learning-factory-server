@@ -22,6 +22,9 @@ class CNCLatheInterface(MachineInterface):
 
         # set up bluetooth port and bind to Ecoca interface
         self._bt_port = hardware.BluetoothPort(**machine_config["bt_params"])
+
+        # set failure mode
+        self._fail_hard = machine_config.get("fail_hard", False)
     
     def _poll_machine(self) -> Dict[Any, str]:
         """Polls CNC Lathe for data
@@ -34,13 +37,20 @@ class CNCLatheInterface(MachineInterface):
         # read message from bluetooth port
         msg = self._bt_port.get_msg(8)
 
-        # parse message
-        door_open, spindle_speed = self._parse_msg(msg)
+        try:
+            # parse message
+            door_open, spindle_speed = self._parse_msg(msg)
 
-        return {
-            "status": {"door_open": door_open},
-            "rates": {"spindle_speed": spindle_speed},
-        }
+            return {
+                "status": {"door_open": door_open},
+                "rates": {"spindle_speed": spindle_speed},
+            }
+
+        except RuntimeError as err:
+            if self._fail_hard:
+                raise err
+            else:
+                raise RuntimeWarning(err.args[0])
 
     def _parse_msg(self, msg: bytes) -> Tuple[bool, int]:
         """Parses message into door open and spindle speed fields.
@@ -56,15 +66,15 @@ class CNCLatheInterface(MachineInterface):
             fields parsed from message
         """
         # assert that delimiters are correct
-        if msg[1:2] != b',' or msg[4:5] != b',' or msg[8:9] != b';':
+        if msg[1:2] != b',' or msg[4:5] != b',' or msg[7:8] != b';':
             raise RuntimeError("Message is malformed. Incorrect delimiters.")
 
         # get door open and spindle speed
-        door_open, *_ = struct.unpack('?', msg[:1])
-        spindle_speed, *_ = struct.unpack('H', msg[2:4])
+        door_open, *_ = struct.unpack('!?', msg[:1])
+        spindle_speed, *_ = struct.unpack('!H', msg[2:4])
 
         # get and check checksum
-        checksum, *_ = struct.unpack('H', msg[6:8])
+        checksum, *_ = struct.unpack('!H', msg[5:7])
         derived_checksum = int(door_open) + spindle_speed
         if checksum != derived_checksum:
             raise RuntimeError(

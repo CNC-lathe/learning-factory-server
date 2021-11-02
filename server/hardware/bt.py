@@ -25,5 +25,10 @@ class BluetoothPort:
         ----------
         msg_len : int
             number of bytes to read from bluetooth port
+
+        Returns
+        -------
+        bytes
+            message received from bluetooth port
         """
-        self._port.recv(msg_len)
+        return self._port.recv(msg_len)

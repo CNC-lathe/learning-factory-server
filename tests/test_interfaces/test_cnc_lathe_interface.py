@@ -12,7 +12,7 @@ from server.machine_interfaces.cnc_lathe import CNCLatheInterface
 
 class CNCLatheInterfaceTests(unittest.TestCase):
     """Tests the CNC lathe interface."""
-    msg_format: str = "?sHsHs"
+    msg_format: str = "!?sHsHs"
 
     def _build_message(
         self,
